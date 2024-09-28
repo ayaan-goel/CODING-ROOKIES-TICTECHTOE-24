@@ -1,127 +1,108 @@
 import streamlit as st
-from langchain_community.llms import OpenAI
-import requests
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from langchain_google_genai import GoogleGenerativeAI
 
-# Define your Gemini API key
-GEMINI_API_KEY = "AIzaSyBgzo4fpUEQKN5ZltUq3kG_51T_ZdmA-Vs"
+# Set page configuration
+st.set_page_config(page_title="AI Gift Suggestion Bot", page_icon="🎁", layout="wide")
 
-# Helper function to call the Gemini API
-def get_gift_recommendations(occasion, relationship, age, gender, interests, budget):
-    payload = {
-        "occasion": occasion,
-        "relationship": relationship,
-        "age": age,
-        "gender": gender,
-        "interests": interests,
-        "budget": budget
+# Initialize Google Gemini LLM with API key
+google_api_key = "AIzaSyDX7iqE8XTN8npHp9jKZST8HMfZS4ncNpg"
+llm = GoogleGenerativeAI(temperature=0.1, google_api_key=google_api_key, model="gemini-pro")
+
+# Define LangChain prompts
+gift_prompt = PromptTemplate(
+    input_variables=['occasion', 'relationship', 'age', 'gender', 'interests', 'budget'],
+    template=(
+        "Suggest gifts for the following criteria: "
+        "Occasion: {occasion}, Relationship: {relationship}, Age: {age}, "
+        "Gender: {gender}, Interests: {interests}, Budget: {budget}. "
+        "Please provide a list of suitable gifts."
+    )
+)
+
+# Create LangChain chain
+gift_suggestion_chain = LLMChain(llm=llm, prompt=gift_prompt, verbose=True, output_key='gift_suggestions')
+
+# Simulated function to fetch links from Amazon/eBay based on gift suggestions
+def fetch_links(gift_suggestions):
+    links_data = {
+        "Wireless Earbuds": {
+            "amazon": "https://www.amazon.com/dp/B07T81554H",
+            "ebay": "https://www.ebay.com/itm/303665593415"
+        },
+        "Smart Watch": {
+            "amazon": "https://www.amazon.com/dp/B07YFKC8MD",
+            "ebay": "https://www.ebay.com/itm/283937153017"
+        },
+        "Bluetooth Speaker": {
+            "amazon": "https://www.amazon.com/dp/B082T3F3NT",
+            "ebay": "https://www.ebay.com/itm/254821716151"
+        }
+        # Add more simulated data here
     }
-    
-    headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.post('https://actual-gemini-api-endpoint.com/suggest-gifts', json=payload, headers=headers)
 
+    # Create a list of links for Amazon and eBay
+    amazon_links = []
+    ebay_links = []
 
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": "Failed to fetch gift recommendations"}
+    for gift in gift_suggestions:
+        if gift in links_data:
+            amazon_links.append((gift, links_data[gift]["amazon"]))
+            ebay_links.append((gift, links_data[gift]["ebay"]))
+
+    # Sort by alphabetical order
+    amazon_links = sorted(amazon_links, key=lambda x: x[0])
+    ebay_links = sorted(ebay_links, key=lambda x: x[0])
+
+    return amazon_links, ebay_links
 
 # Streamlit UI
-st.title("Gift Finder Chatbot")
-st.write("I'll help you find the perfect, personalized gift for that special person in your life.")
-st.write("Just a quick round of questions and voila - the dream gift will be at your fingertips!")
+st.title('AI Gift Suggestion Bot 🎁')
 
-# First question: Occasion
-occasion = st.selectbox(
-    "What's the special occasion?",
-    [
-        "Boss's Day (Oct 14, 2024)", "Diwali (Oct 29, 2024)", "Halloween (Oct 31, 2024)", "Birthday", 
-        "Anniversary", "Housewarming", "Graduation", "Wedding", "Engagement", "Retirement", 
-        "Bridal Shower", "Wedding Shower", "Baby Shower", "Quinceañera", "Bat Mitzvah", 
-        "Bar Mitzvah", "Bachelor Party", "Bachelorette Party", "Baptism", "New Job", 
-        "Promotion", "Work Anniversary", "Get Well", "Sympathy", "Thank You", "Host", 
-        "Hostess", "Holiday", "Christmas (Dec 25, 2024)", "Valentine's Day (Feb 14, 2025)", 
-        "Mother's Day (May 11, 2025)", "Father's Day (Jun 15, 2025)", "New Year's (Jan 1, 2025)", 
-        "Easter (Apr 6, 2025)", "Thanksgiving (Nov 28, 2024)", "Memorial Day (May 26, 2025)", 
-        "Purim (Mar 21, 2025)", "Hanukkah (Dec 2, 2024)", "Rosh Hashanah (Sep 28, 2025)", 
-        "Passover (Apr 12, 2025)", "Eid (Apr 22, 2025)", "Ramadan (Mar 31, 2025)", 
-        "Secret Santa (Dec 24, 2024)", "White Elephant"
-    ]
-)
+# Input fields for user to provide preferences
+occasion = st.selectbox('Select Occasion:', ['Birthday', 'Anniversary', 'Wedding', 'Graduation', 'Holiday', 'Other'])
+relationship = st.selectbox('Select Relationship:', ['Friend', 'Family', 'Partner', 'Colleague', 'Other'])
+age = st.number_input('Enter Age:', min_value=1, max_value=120)
+gender = st.selectbox('Select Gender:', ['Male', 'Female', 'Other'])
+interests = st.text_input('Enter Interests (e.g., Sports, Music, Tech, etc.):')
+budget = st.number_input('Enter Budget (in $):', min_value=1)
 
-# Second question: Relationship
-relationship = st.selectbox(
-    "Who's the lucky individual deserving of this fabulous gift?",
-    [
-        "Friend", "Friends", "Best Friend", "Myself", "Wife", "Girlfriend", "Husband", 
-        "Boyfriend", "Fiance", "Parents", "Mom", "Dad", "Grandparents", "Grandma", "Grandpa", 
-        "Son", "Sons", "Daughter", "Daughters", "Brother", "Brothers", "Sister", "Sisters", 
-        "Siblings", "Aunt", "Uncle", "Cousin", "Niece", "Nephew", "Teacher", "Employee", 
-        "Employees", "Coworker", "Coworkers", "Boss", "Client", "Clients", "Neighbor", 
-        "Neighbors", "Groomsmen", "Bridesmaid", "Coach", "Nurse"
-    ]
-)
+# Button to get suggestions
+if st.button('Get Gift Suggestions'):
+    try:
+        # Call the LangChain model for AI-based suggestions
+        inputs = {
+            'occasion': occasion,
+            'relationship': relationship,
+            'age': age,
+            'gender': gender,
+            'interests': interests,
+            'budget': budget
+        }
+        output = gift_suggestion_chain(inputs)
 
-# Third question: Age
-age = st.selectbox(
-    "Time to spill the beans, how old are they?",
-    [
-        "60+: Senior", "40-60: Middle Age", "26-40: Adult", "18-25: Young Adult", 
-        "12-18: Teen", "4-12: Child", "2-4: Preschool", "0-2: Toddler"
-    ]
-)
+        # Display final AI-generated suggestions
+        gift_suggestions = output['gift_suggestions'].split(', ')
+        st.subheader('AI Gift Suggestions:')
+        
+        # Create columns for card display
+        cols = st.columns(3)  # Adjust the number of columns based on your layout preference
+        
+        for idx, gift in enumerate(gift_suggestions):
+            with cols[idx % 3]:  # Distribute gifts across columns
+                st.markdown(f"### {gift}")
+                st.markdown("#### Buy Links:")
+                
+                # Fetch links for the current gift
+                amazon_link, ebay_link = fetch_links([gift])
+                
+                if amazon_link:
+                    st.markdown(f"[Amazon]({amazon_link[0][1]})")
+                if ebay_link:
+                    st.markdown(f"[eBay]({ebay_link[0][1]})")
 
-# Fourth question: Gender
-gender = st.selectbox(
-    "Do you mind sharing their gender?",
-    [
-        "Male", "Female", "Other", "Prefer not to say"
-    ]
-)
-
-# Fifth question: Interests
-interests = st.multiselect(
-    "What are some interests and hobbies that make them smile?",
-    [
-        "Tech and Gadgets", "Food", "Drinks", "Snacks & Sweets", "Movies and TV", "Music", 
-        "Clothing and Accessories", "Beauty", "Sports and Activities", "Pets", "Health and Wellness", 
-        "Reading", "Cooking", "Home Decor and Improvement", "Games and Puzzles", "Outdoors", 
-        "Art and Design"
-    ]
-)
-
-# Sixth question: Budget
-budget = st.selectbox(
-    "Last but not least, how much are you willing to spend on this spectacular gift?",
-    [
-        "Rs10-25", "Rs25-50", "Rs50-100", "Rs100-200", "Rs200-300", "Rs300-500", "Rs500-1,000"
-    ]
-)
-
-# When user is done selecting, call Gemini API
-if st.button("Suggest Gifts"):
-    with st.spinner("Finding the perfect gift..."):
-        result = get_gift_recommendations(occasion, relationship, age, gender, interests, budget)
-
-        if "error" not in result:
-            st.success("Here are some personalized gift suggestions!")
-            st.write("### Personalized Gifts:")
-            st.write(result)
-
-            for gift in result['personalized']:
-                st.write(f"- {gift['name']} (Amazon link: {gift['url']})")
-            
-            st.write("### Trending Gifts:")
-            for gift in result['trending']:
-                st.write(f"- {gift['name']} (Amazon link: {gift['url']})")
-
-            st.write("### Best-Sellers:")
-            for gift in result['best_sellers']:
-                st.write(f"- {gift['name']} (Amazon link: {gift['url']})")
-        else:
-            st.error("Failed to get gift suggestions. Please try again.")
-
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+else:
+    st.info("Fill in the details to get gift suggestions.")
