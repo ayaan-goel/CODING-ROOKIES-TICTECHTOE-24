@@ -21,7 +21,8 @@ def get_gift_recommendations(occasion, relationship, age, gender, interests, bud
         "Content-Type": "application/json"
     }
     
-    response = requests.post('https://httpbin.org/post', json=payload, headers=headers)
+ response = requests.post('https://actual-gemini-api-endpoint.com/suggest-gifts', json=payload, headers=headers)
+
 
     
     if response.status_code == 200:
