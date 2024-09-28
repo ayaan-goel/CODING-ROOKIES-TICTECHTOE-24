@@ -109,6 +109,8 @@ if st.button("Suggest Gifts"):
         if "error" not in result:
             st.success("Here are some personalized gift suggestions!")
             st.write("### Personalized Gifts:")
+            st.write(result)
+
             for gift in result['personalized']:
                 st.write(f"- {gift['name']} (Amazon link: {gift['url']})")
             
